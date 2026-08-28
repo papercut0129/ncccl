@@ -1,7 +1,7 @@
 # ncccl
 英伟达集合通信库nccl的优化与分析
 
-本项目基于nccl v2.29.2‑1版本
+本项目基于nccl v2.29.2‑1版本：https://github.com/NVIDIA/nccl
 
 nccl是英伟达的集合通信库，旨在解决分布式训练场景下，多gpu协同工作的问题。
 
