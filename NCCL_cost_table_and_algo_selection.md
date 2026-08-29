@@ -17,7 +17,6 @@
 - 静态二维表变成了 `ncclTuningContext` 里的 `generalLatencies[]` / `generalBandwidths[]`；
 - 运行时还会构造一张 `generalTable[algo][proto]` 快照，传给 tuner 插件，插件接口里就叫 `collCostTable`。
 
-所以你说“里面有一个重要的结构是 costtable”，完全正确，只是它在 2.31 里换了形态。
 
 ## 1. 实际调用链
 
