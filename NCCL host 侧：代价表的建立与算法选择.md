@@ -21,7 +21,7 @@
 
 ## 1. 实际调用链
 
-你给的链路大方向对，但函数名有几处需要对齐到当前代码：
+最新版本当前代码：
 
 ```text
 ncclAllGather()
@@ -111,7 +111,7 @@ static ncclResult_t groupLaunch(struct ncclAsyncJob* job_, ncclSimInfo_t* simInf
 
 也就是说当前有两套执行路径：
 
-- `groupLaunchLegacy`：你链路里描述的那条传统路径；
+- `groupLaunchLegacy`：传统路径；
 - `groupLaunchEnqueueRearch`：新的 enqueue 重构路径。
 
 在 legacy 路径里，对每个 collective communicator 会调用 `ncclPrepareTasksAndCollPreconnect()`，它内部再调用 `ncclPrepareTasks()`。
@@ -437,7 +437,7 @@ if (tuningId < NCCL_NUM_ALGORITHMS * NCCL_NUM_PROTOCOLS) {
 1. 初始化阶段：建物理拓扑 → 搜逻辑图 → 用图上的带宽/延迟建立代价表；
 2. 运行时阶段：任务挂载 → 聚合 → 用代价表模拟候选算法 → 选最小代价 → 生成执行计划。
 
-你最初说的“代价表 + 算法选择”是第二阶段的核心，而它的输入正是第一阶段的 `comm->graphs[]`。这也再次印证了那个观点：NCCL 的本质是一套资源匹配系统，代价表就是它用来度量“哪种资源组合更便宜”的核心数据结构。
+“代价表 + 算法选择”是第二阶段的核心，而它的输入正是第一阶段的 `comm->graphs[]`。这也再次印证了我的观点：NCCL 的本质是一套资源匹配系统，代价表就是它用来度量“哪种资源组合更便宜”的核心数据结构。
 
 ## 参考源码
 
