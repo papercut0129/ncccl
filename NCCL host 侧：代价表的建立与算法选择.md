@@ -1,4 +1,4 @@
-# NCCL host 侧：代价表的建立与算法选择
+# NCCL host 侧核心②：代价表的建立与算法选择
 
 > 基于本仓库 NCCL 2.31.2 源码。  
 > 主线文件：`src/collectives.cc`、`src/enqueue/enqueue.cc`、`src/group.cc`、`src/tuning/*`、`src/include/tuning.h`。  
