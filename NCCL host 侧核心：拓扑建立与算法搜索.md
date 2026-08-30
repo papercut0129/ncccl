@@ -1,4 +1,4 @@
-# NCCL host 侧核心：拓扑建立与算法搜索
+# NCCL host 侧核心①：拓扑建立与算法搜索
 
 > 基于本仓库 NCCL 2.31.2 源码。  
 > 主线文件：`src/init.cc`、`src/graph/topo.cc`、`src/graph/paths.cc`、`src/graph/search.cc`、`src/include/graph.h`。  
