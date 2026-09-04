@@ -2,16 +2,15 @@
 
 本文档回答一个问题：NCCL 里有哪些“算子”，它们分别做什么，哪些地方是共用的，哪些地方又彼此不同。
 
-源码根目录：`C:/Users/79811/Desktop/nccl/nccl-master/nccl-master`
 
 关键源码入口：
 
-- 内部算子枚举：[nccl_common.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/include/nccl_common.h:72)
-- 对外 API 声明：[nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:517)
-- 对外 API 入队实现：[collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:22)
-- 设备端公共执行框架：[common.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/common.h:434)
-- 底层传输原语：[primitives.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/primitives.h:26)
-- 内核生成算法矩阵：[generate.py](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/generate.py:20)
+- 内部算子枚举：[nccl_common.h](nccl/nccl-master/nccl-master/src/include/nccl_common.h:72)
+- 对外 API 声明：[nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:517)
+- 对外 API 入队实现：[collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:22)
+- 设备端公共执行框架：[common.h](nccl/nccl-master/nccl-master/src/device/common.h:434)
+- 底层传输原语：[primitives.h](nccl/nccl-master/nccl-master/src/device/primitives.h:26)
+- 内核生成算法矩阵：[generate.py](nccl/nccl-master/nccl-master/src/device/generate.py:20)
 
 ## 1. NCCL 算子全景
 
@@ -27,12 +26,12 @@ NCCL 中的“算子”不是只有一个层次，而是可以分为四类：
 
 3. **组合型集合算子**：AlltoAll、Gather、Scatter。
    - 它们没有独立的设备端集合内核，而是在任务分类阶段被拆成多个 Send/Recv 任务。
-   - 拆分逻辑见 [task_classify.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:58)。
+   - 拆分逻辑见 [task_classify.cc](nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:58)。
 
 4. **单边 / 信号算子**：PutSignal、Signal、WaitSignal。
    - 对应 `ncclPutSignal`、`ncclSignal`、`ncclWaitSignal`，走 RMA 任务队列，而不是传统集合内核。
 
-此外还有内部优化算子 `AllGatherV`，它是变长 AllGather / 批量化 Broadcast 的内部实现，不是公开 API，设备端见 [all_gather_v.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather_v.h:16)。
+此外还有内部优化算子 `AllGatherV`，它是变长 AllGather / 批量化 Broadcast 的内部实现，不是公开 API，设备端见 [all_gather_v.h](nccl/nccl-master/nccl-master/src/device/all_gather_v.h:16)。
 
 ## 2. 核心集合算子语义对比
 
@@ -48,8 +47,8 @@ NCCL 中的“算子”不是只有一个层次，而是可以分为四类：
 
 语义来源：
 
-- API 注释见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:517)。
-- 入队包装见 [collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:153)。
+- API 注释见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:517)。
+- 入队包装见 [collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:153)。
 
 ### 2.1 直观理解
 
@@ -78,11 +77,11 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 2. 解析 `ncclCollConfig_t`。
 3. 调用统一的 `ncclEnqueueCheck()` 完成参数校验、算法/协议选择、任务调度和内核启动。
 
-例如 [collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:234) 中的 `ncclAllReduceConfigImpl` 只是把参数填进 `ncclInfo` 后交给统一入口。所有集合算子都是异步入队，函数返回只代表“已经提交到 CUDA stream”，不代表通信完成。
+例如 [collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:234) 中的 `ncclAllReduceConfigImpl` 只是把参数填进 `ncclInfo` 后交给统一入口。所有集合算子都是异步入队，函数返回只代表“已经提交到 CUDA stream”，不代表通信完成。
 
 ### 3.2 Device 侧统一分发
 
-设备端主循环在 [common.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/common.h:434) 的 `ncclKernelMain`：
+设备端主循环在 [common.h](nccl/nccl-master/nccl-master/src/device/common.h:434) 的 `ncclKernelMain`：
 
 1. 把 kernel 参数、comm、channel 加载到共享内存。
 2. 通过 `loadWorkBatchToShmem` 加载 work。
@@ -93,7 +92,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 
 ### 3.3 Channel / CBD 数据划分
 
-所有集合算子都使用 channel 并行，并由 [ncclCollCbdPart](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/include/device.h:357) 计算：
+所有集合算子都使用 channel 并行，并由 [ncclCollCbdPart](nccl/nccl-master/nccl-master/src/include/device.h:357) 计算：
 
 - `partOffset`：当前 channel 在全局 buffer 中的起始元素偏移。
 - `partCount`：当前 channel 负责的元素数量。
@@ -103,7 +102,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 
 ### 3.4 三种传输协议
 
-协议定义在 [primitives.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/primitives.h:37)：
+协议定义在 [primitives.h](nccl/nccl-master/nccl-master/src/device/primitives.h:37)：
 
 - **LL**：低延迟，16 字节线路里 8 字节数据 + 8 字节 flag，适合极小消息。
 - **LL128**：128 字节对齐，中等消息。
@@ -129,7 +128,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 - `preOp`：输入前的局部缩放，例如 `ncclAvg` 在浮点类型下映射为 `PreMulSum`，先乘 `1/nranks`。
 - `postOp`：最终结果后处理，例如 `SumPostDiv` 在整数类型下除以 `nranks`。
 
-这是所有归约算子共有的数值语义基础，详见 [reduce_kernel.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_kernel.h:204)。
+这是所有归约算子共有的数值语义基础，详见 [reduce_kernel.h](nccl/nccl-master/nccl-master/src/device/reduce_kernel.h:204)。
 
 ## 4. 不同点一：数据流与 root
 
@@ -166,7 +165,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 - ReduceScatter
 - AllReduce
 
-它们必须携带真实的 `ncclRedOp_t op`，并经过 [enqueue.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/enqueue.cc:2480) 把公开 `ncclRedOp_t` 映射成设备端 `ncclDevRedOp_t`：
+它们必须携带真实的 `ncclRedOp_t op`，并经过 [enqueue.cc](nccl/nccl-master/nccl-master/src/enqueue/enqueue.cc:2480) 把公开 `ncclRedOp_t` 映射成设备端 `ncclDevRedOp_t`：
 
 - `ncclSum` -> `ncclDevSum`
 - `ncclProd` -> `ncclDevProd`
@@ -176,7 +175,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 
 ## 6. 不同点三：算法支持矩阵
 
-算法支持由 [generate.py](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/generate.py:74) 中的 `algos_of_coll` 决定：
+算法支持由 [generate.py](nccl/nccl-master/nccl-master/src/device/generate.py:74) 中的 `algos_of_coll` 决定：
 
 | 算子 | Ring | Tree | CollNet Direct | CollNet Chain | NVLS | NVLS_TREE | PAT |
 |---|---|---|---|---|---|---|---|
@@ -196,7 +195,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 
 ## 7. 不同点四：协议支持
 
-协议与算法组合由 [generate.py](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/generate.py:83) 的 `required_cuda` 约束：
+协议与算法组合由 [generate.py](nccl/nccl-master/nccl-master/src/device/generate.py:83) 的 `required_cuda` 约束：
 
 - RING 和 TREE 通常支持 LL、LL128、SIMPLE 三种协议。
 - PAT、NVLS、NVLS_TREE、COLLNET_DIRECT、COLLNET_CHAIN 只支持 SIMPLE。
@@ -217,12 +216,12 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 
 | 算子 | Host API | 设备内核 |
 |---|---|---|
-| Broadcast | [collectives.cc:271](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:271) | [broadcast.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/broadcast.h:23) |
-| Reduce | [collectives.cc:354](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:354) | [reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce.h:23) |
-| AllGather | [collectives.cc:153](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:153) | [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:20) |
-| ReduceScatter | [collectives.cc:393](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:393) | [reduce_scatter.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:20) |
-| AllReduce | [collectives.cc:234](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:234) | [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:25) |
-| Send / Recv | [collectives.cc:469](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:469) | [sendrecv.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/sendrecv.h:18) |
+| Broadcast | [collectives.cc:271](nccl/nccl-master/nccl-master/src/collectives.cc:271) | [broadcast.h](nccl/nccl-master/nccl-master/src/device/broadcast.h:23) |
+| Reduce | [collectives.cc:354](nccl/nccl-master/nccl-master/src/collectives.cc:354) | [reduce.h](nccl/nccl-master/nccl-master/src/device/reduce.h:23) |
+| AllGather | [collectives.cc:153](nccl/nccl-master/nccl-master/src/collectives.cc:153) | [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:20) |
+| ReduceScatter | [collectives.cc:393](nccl/nccl-master/nccl-master/src/collectives.cc:393) | [reduce_scatter.h](nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:20) |
+| AllReduce | [collectives.cc:234](nccl/nccl-master/nccl-master/src/collectives.cc:234) | [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:25) |
+| Send / Recv | [collectives.cc:469](nccl/nccl-master/nccl-master/src/collectives.cc:469) | [sendrecv.h](nccl/nccl-master/nccl-master/src/device/sendrecv.h:18) |
 
 ## 9. 组合算子与单边算子的不同实现方式
 
@@ -234,7 +233,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 - Gather：所有 rank 向 root 发；root 再按 rank 顺序收。
 - Scatter：root 按 rank 顺序发；所有 rank 从 root 收。
 
-见 [task_classify.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:58)。
+见 [task_classify.cc](nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:58)。
 
 ### 9.2 PutSignal / Signal / WaitSignal 走 RMA
 
@@ -244,7 +243,7 @@ NCCL 之所以能高效实现这么多算子，是因为它们共享同一套执
 - `ncclSignal`：只发信号，不传数据。
 - `ncclWaitSignal`：等待指定 peer/context 上的信号。
 
-它们在 `ncclTaskClassification` 中被归入 `rmaTaskQueue`，见 [task_classify.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:130)。
+它们在 `ncclTaskClassification` 中被归入 `rmaTaskQueue`，见 [task_classify.cc](nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:130)。
 
 ## 10. 使用场景速查
 
