@@ -1,4 +1,27 @@
 # ncccl
+# Optimization and Analysis of NVIDIA's Collective Communication Library NCCL
+
+This project is based on NCCL v2.29.2-1: [https://github.com/NVIDIA/nccl](https://github.com/NVIDIA/nccl)
+
+NCCL is NVIDIA's collective communication library, designed to solve the problem of multi-GPU collaboration in distributed training scenarios.
+
+In essence, it is not about distributed communication, but about coordinating resources. On the host side, GPUs are resources, protocols are resources, channels are resources, and networks are resources; on the kernel side, memory is a resource and threads are resources. How to match the optimal combination of resources for different operations is the most important problem NCCL aims to solve.
+
+As GPUs and communication methods have evolved, NCCL has been iterating on top of its original version, but the original architecture and design no longer fit current scenarios. I believe that in the future, what NCCL needs to do is solve the problem of entropy increase and decrease in a dynamically balanced system.
+
+This project attempts to summarize and optimize the original code to help more students and developers.
+
+---
+
+This project mainly includes the following parts:
+
+1. Analysis of NCCL core workflows: topology construction and algorithm search, cost tables and algorithm selection.
+2. Analysis of NCCL communication operators.
+3. Optimization of key NCCL components (host side).
+
+
+
+
 英伟达集合通信库nccl的优化与分析
 
 本项目基于nccl v2.29.2‑1版本：https://github.com/NVIDIA/nccl
