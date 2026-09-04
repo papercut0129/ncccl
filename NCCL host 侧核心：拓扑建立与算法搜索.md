@@ -2,7 +2,6 @@
 
 > 基于本仓库 NCCL 2.31.2 源码。  
 > 主线文件：`src/init.cc`、`src/graph/topo.cc`、`src/graph/paths.cc`、`src/graph/search.cc`、`src/include/graph.h`。  
-> 文中 Mermaid 图需要在支持 Mermaid 的渲染器（GitHub / GitLab / Typora / Obsidian / VSCode 插件）中查看。
 
 ## 为什么 host 侧“拓扑 + 搜索”是核心
 
