@@ -1,19 +1,17 @@
 # AllReduce 源码分析与单卡归约内核优化（简历项目文档）
 
-> 面向岗位：AI Infra / 高性能计算 / 算子开发
-> 核心能力展示：读懂工业级通信库源码 + 定位性能瓶颈 + 单卡可复现的优化 + 可量化验证
+
+> 核心能力：读懂工业级通信库源码 + 定位性能瓶颈 + 单卡可复现的优化 + 可量化验证
 
 ---
 
 ## 1. 项目定位（先说清楚约束与价值）
 
-AllReduce 是多卡集合通信算子，真正的 AllReduce 需要 `nranks >= 2` 才能在环/树上跑。本人在**单卡**环境下无法直接跑多卡通信，因此本项目采用一个诚实且同样有含金量的定位：
-
+AllReduce 是多卡集合通信算子，真正的 AllReduce 需要 `nranks >= 2` 才能在环/树上跑。
 - **读懂**：完整分析 NCCL 中 AllReduce 从 host API 到 device kernel 的全链路，以及 Ring/Tree 算法、三种协议、搬运握手机制。
 - **优化**：把 AllReduce 在单卡上的**计算核心——归约（reduction）内核**抽出来，做可 benchmark 的优化（`atomic` → 树形 shared memory → warp shuffle → 向量化多元素）。
 - **模拟**：在单卡上实现 Ring AllReduce 两阶段的算法模拟，验证对通信算法本身的理解。
 
-简历上写“单卡归约内核优化 + Ring AllReduce 算法分析”，不写“优化了 NCCL 官方多卡通信”，既诚实又能充分展示能力。
 
 ---
 
