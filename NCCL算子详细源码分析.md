@@ -2,7 +2,7 @@
 
 本文档逐算子分析 NCCL 的通信算子：作用、公开 API、host 入队路径、设备端内核算法、协议/算法变体、原地条件与适用场景。
 
-源码根目录：`C:/Users/79811/Desktop/nccl/nccl-master/nccl-master`
+源码根目录：`nccl/nccl-master/nccl-master`
 
 ## 0. 阅读指南与公共基础
 
@@ -20,11 +20,11 @@ ncclXxx() -> ncclXxxConfigImpl() -> ncclEnqueueCheck()
 - `ncclXxxConfigImpl()`：构造 `ncclInfo`，解析 `ncclCollConfig_t`。
 - `ncclEnqueueCheck()`：参数校验、算法选择、协议选择、任务分类、内核启动。
 
-入口实现在 [collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:22)。这些函数只负责异步入队，真正通信在 CUDA stream 上完成。
+入口实现在 [collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:22)。这些函数只负责异步入队，真正通信在 CUDA stream 上完成。
 
 ### 0.2 Device 侧统一分发
 
-设备端主循环是 [ncclKernelMain](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/common.h:434)：
+设备端主循环是 [ncclKernelMain](nccl/nccl-master/nccl-master/src/device/common.h:434)：
 
 1. 把 kernel 参数、comm、channel 复制到共享内存 `ncclShmem`。
 2. 用 `loadWorkBatchToShmem` 加载 work。
@@ -35,7 +35,7 @@ ncclXxx() -> ncclXxxConfigImpl() -> ncclEnqueueCheck()
 
 ### 0.3 channel 与 chunk
 
-每个集合算子都调用 [ncclCollCbdPart](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/include/device.h:357)，得到：
+每个集合算子都调用 [ncclCollCbdPart](nccl/nccl-master/nccl-master/src/include/device.h:357)，得到：
 
 - `gridOffset` / `partOffset`：当前 channel 负责的数据起点。
 - `channelCount` / `partCount`：当前 channel 负责的数据量。
@@ -51,7 +51,7 @@ ncclXxx() -> ncclXxxConfigImpl() -> ncclEnqueueCheck()
 - `ProtoLL128`：128 字节线，数据和 flag 交错。
 - `ProtoSimple<SlicePerChunk, StepPerSlice, Unroll>`：直接 load/store。
 
-见 [primitives.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/primitives.h:37)。
+见 [primitives.h](nccl/nccl-master/nccl-master/src/device/primitives.h:37)。
 
 `Primitives` 提供 send/recv/directSend/directRecv/recvReduceSend 等底层动作。归约统一由 `reduceCopy` 完成。
 
@@ -77,11 +77,11 @@ ncclResult_t ncclBroadcast(const void* sendbuff, void* recvbuff, size_t count,
 - 原地操作发生在 `sendbuff == recvbuff`。
 - 废弃接口 `ncclBcast` 等价于原地 Broadcast。
 
-声明见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:559)。
+声明见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:559)。
 
 ### 1.3 Host 入队
 
-[ncclBroadcastConfigImpl](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:271) 构造：
+[ncclBroadcastConfigImpl](nccl/nccl-master/nccl-master/src/collectives.cc:271) 构造：
 
 ```c
 struct ncclInfo info = {ncclFuncBroadcast, "Broadcast",
@@ -93,7 +93,7 @@ Broadcast 不归约，`op` 用 `ncclSum` 占位；`root` 是数据来源 rank。
 
 ### 1.4 设备端算法：Ring
 
-当前 Broadcast 设备内核只有 Ring 算法，见 [broadcast.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/broadcast.h:23)。
+当前 Broadcast 设备内核只有 Ring 算法，见 [broadcast.h](nccl/nccl-master/nccl-master/src/device/broadcast.h:23)。
 
 核心函数 `runRing` 的逻辑是：
 
@@ -116,7 +116,7 @@ for 每个 chunk:
 
 ### 1.5 协议特化
 
-[broadcast.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/broadcast.h:85) 提供三种特化：
+[broadcast.h](nccl/nccl-master/nccl-master/src/device/broadcast.h:85) 提供三种特化：
 
 - `NCCL_PROTO_SIMPLE`
 - `NCCL_PROTO_LL`
@@ -126,7 +126,7 @@ for 每个 chunk:
 
 ### 1.6 网络卸载与本地拷贝
 
-当 `isNetOffload == true` 时，只用一个 warp 驱动网络通信，其余 warp 负责 root 非原地情况下的本地拷贝。实现见 [broadcast.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/broadcast.h:30)。
+当 `isNetOffload == true` 时，只用一个 warp 驱动网络通信，其余 warp 负责 root 非原地情况下的本地拷贝。实现见 [broadcast.h](nccl/nccl-master/nccl-master/src/device/broadcast.h:30)。
 
 ### 1.7 适用场景
 
@@ -154,15 +154,15 @@ ncclResult_t ncclReduce(const void* sendbuff, void* recvbuff, size_t count,
 - 非 root 的 `recvbuff` 可以传 NULL。
 - 原地操作发生在 `sendbuff == recvbuff`。
 
-声明见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:530)。
+声明见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:530)。
 
 ### 2.3 Host 入队
 
-[ncclReduceConfigImpl](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:354) 构造 `ncclInfo`，其中 `op` 是真实归约操作，`root` 是结果落点 rank。
+[ncclReduceConfigImpl](nccl/nccl-master/nccl-master/src/collectives.cc:354) 构造 `ncclInfo`，其中 `op` 是真实归约操作，`root` 是结果落点 rank。
 
 ### 2.4 设备端算法：Ring
 
-当前 Reduce 也只有 Ring 算法，见 [reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce.h:23)。
+当前 Reduce 也只有 Ring 算法，见 [reduce.h](nccl/nccl-master/nccl-master/src/device/reduce.h:23)。
 
 核心逻辑：
 
@@ -184,7 +184,7 @@ for 每个 chunk:
 
 ### 2.5 协议特化
 
-[reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce.h:72) 提供 SIMPLE、LL、LL128 三个特化。
+[reduce.h](nccl/nccl-master/nccl-master/src/device/reduce.h:72) 提供 SIMPLE、LL、LL128 三个特化。
 
 ### 2.6 适用场景
 
@@ -215,15 +215,15 @@ ncclResult_t ncclAllGather(const void* sendbuff, void* recvbuff, size_t sendcoun
 - 接收缓冲区至少 `nranks * sendcount` 个元素。
 - 原地条件：`sendbuff == recvbuff + rank * sendcount`。
 
-声明见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:606)。
+声明见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:606)。
 
 ### 3.3 Host 入队
 
-[ncclAllGatherConfigImpl](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:153) 构造 `ncclInfo`，不归约，`op` 用 `ncclSum` 占位。
+[ncclAllGatherConfigImpl](nccl/nccl-master/nccl-master/src/collectives.cc:153) 构造 `ncclInfo`，不归约，`op` 用 `ncclSum` 占位。
 
 ### 3.4 设备端算法
 
-AllGather 支持四种算法，见 [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:20)：
+AllGather 支持四种算法，见 [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:20)：
 
 - Ring
 - PAT
@@ -243,21 +243,21 @@ for 每个 chunk:
 
 经过 `nranks - 1` 跳后，所有 rank 都拥有完整数据。
 
-实现见 [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:20)。
+实现见 [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:20)。
 
-Ring 的三种协议特化见 [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:102)。
+Ring 的三种协议特化见 [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:102)。
 
 #### 3.4.2 PAT AllGather
 
 PAT 是 Parallel Aggregated Tree。设备端用专门的“算法计算线程”生成 `ncclPatStep`，worker 线程按步骤搬运。
 
-实现见 [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:131)。
+实现见 [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:131)。
 
 #### 3.4.3 NVLS AllGather
 
 利用 NVSwitch 的 scatter/gather 能力，将数据按 rail 切分并完成汇聚。
 
-实现见 [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:290)。
+实现见 [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:290)。
 
 #### 3.4.4 CollNet Direct AllGather
 
@@ -267,7 +267,7 @@ PAT 是 Parallel Aggregated Tree。设备端用专门的“算法计算线程”
 2. 网络返回并广播。
 3. 接收广播并落地。
 
-实现见 [all_gather.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather.h:520)。
+实现见 [all_gather.h](nccl/nccl-master/nccl-master/src/device/all_gather.h:520)。
 
 ### 3.5 适用场景
 
@@ -299,17 +299,17 @@ ncclResult_t ncclReduceScatter(const void* sendbuff, void* recvbuff,
 - `sendbuff` 至少 `nranks * recvcount` 个元素。
 - 原地条件：`recvbuff == sendbuff + rank * recvcount`。
 
-声明见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:589)。
+声明见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:589)。
 
 ### 4.3 Host 入队
 
-[ncclReduceScatterConfigImpl](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:393) 构造 `ncclInfo`，`count` 字段填的是 `recvcount`。
+[ncclReduceScatterConfigImpl](nccl/nccl-master/nccl-master/src/collectives.cc:393) 构造 `ncclInfo`，`count` 字段填的是 `recvcount`。
 
 注意 `ncclFuncSendCount` 对 ReduceScatter 会返回 `nRanks * count`，用于计算实际发送缓冲大小。
 
 ### 4.4 设备端算法
 
-ReduceScatter 支持四种算法，见 [reduce_scatter.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:20)：
+ReduceScatter 支持四种算法，见 [reduce_scatter.h](nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:20)：
 
 - Ring
 - PAT
@@ -327,19 +327,19 @@ for 每个 chunk:
     最后 1 步: 接收 + 归约，结果写回本地 recvbuff
 ```
 
-实现见 [reduce_scatter.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:20)。
+实现见 [reduce_scatter.h](nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:20)。
 
 #### 4.4.2 PAT ReduceScatter
 
 与 AllGather 类似，PAT ReduceScatter 使用算法计算线程调度 worker 线程，按 `PatRSAlgorithm` 生成归约步骤。
 
-实现见 [reduce_scatter.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:95)。
+实现见 [reduce_scatter.h](nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:95)。
 
 #### 4.4.3 NVLS ReduceScatter
 
 利用 NVSwitch 的 scatter + reduce 能力，避免 GPU 之间逐跳归约。
 
-实现见 [reduce_scatter.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:247)。
+实现见 [reduce_scatter.h](nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:247)。
 
 #### 4.4.4 CollNet Direct ReduceScatter
 
@@ -349,7 +349,7 @@ for 每个 chunk:
 2. 从本地 peer 归约后发送到集合网络。
 3. 从网络接收最终块。
 
-实现见 [reduce_scatter.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:460)。
+实现见 [reduce_scatter.h](nccl/nccl-master/nccl-master/src/device/reduce_scatter.h:460)。
 
 ### 4.5 适用场景
 
@@ -374,15 +374,15 @@ ncclResult_t ncclAllReduce(const void* sendbuff, void* recvbuff, size_t count,
 - 原地条件：`sendbuff == recvbuff`。
 - 没有 root。
 
-声明见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:575)。
+声明见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:575)。
 
 ### 5.3 Host 入队
 
-[ncclAllReduceConfigImpl](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:234) 构造 `ncclInfo`。AllReduce 是算法空间最大的集合算子，调优阶段会根据消息大小、拓扑、硬件选择算法和协议。
+[ncclAllReduceConfigImpl](nccl/nccl-master/nccl-master/src/collectives.cc:234) 构造 `ncclInfo`。AllReduce 是算法空间最大的集合算子，调优阶段会根据消息大小、拓扑、硬件选择算法和协议。
 
 ### 5.4 设备端算法
 
-AllReduce 支持六种算法，见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:25)：
+AllReduce 支持六种算法，见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:25)：
 
 - Ring
 - Tree
@@ -408,9 +408,9 @@ Ring AllReduce 是 NCCL 最经典的实现：
 
 每个 rank 在环上转 `2 * (nranks - 1)` 步后，拥有完整归约结果。
 
-实现见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:25)。
+实现见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:25)。
 
-Ring 的三个协议特化见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:296) 和文件末尾的 LL/LL128 特化。
+Ring 的三个协议特化见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:296) 和文件末尾的 LL/LL128 特化。
 
 #### 5.4.2 Tree AllReduce
 
@@ -424,21 +424,21 @@ NCCL 有两种 Tree 实现：
 - `runTreeUpDown`：上行、下行严格分离，先 Reduce 再 Broadcast。
 - `runTreeSplit`：把线程分成两组，一组做上行归约，一组做下行广播，二者并行推进，提高大消息带宽。
 
-实现见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:120) 和 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:193)。
+实现见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:120) 和 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:193)。
 
-Tree + SIMPLE 的入口见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:306)，Tree + LL/LL128 见文件末尾。
+Tree + SIMPLE 的入口见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:306)，Tree + LL/LL128 见文件末尾。
 
 #### 5.4.3 CollNet Direct / CollNet Chain
 
-- CollNet Direct：借助集合网络硬件，按 Scatter / Gather / Reduce / Broadcast 四段流水完成，见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:319)。
-- CollNet Chain：链式上行归约、下行广播，见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:712)。
+- CollNet Direct：借助集合网络硬件，按 Scatter / Gather / Reduce / Broadcast 四段流水完成，见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:319)。
+- CollNet Chain：链式上行归约、下行广播，见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:712)。
 
 二者都依赖集合网络，如 InfiniBand SHARP。
 
 #### 5.4.4 NVLS 与 NVLS_TREE
 
-- NVLS：使用 NVSwitch 的硬件归约能力完成 scatter/gather/reduce/broadcast，见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:462)。
-- NVLS_TREE：NVLS 负责归约，tree 负责多节点分发/汇聚，见 [all_reduce.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_reduce.h:600)。
+- NVLS：使用 NVSwitch 的硬件归约能力完成 scatter/gather/reduce/broadcast，见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:462)。
+- NVLS_TREE：NVLS 负责归约，tree 负责多节点分发/汇聚，见 [all_reduce.h](nccl/nccl-master/nccl-master/src/device/all_reduce.h:600)。
 
 ### 5.5 适用场景
 
@@ -467,14 +467,14 @@ ncclResult_t ncclRecv(void* recvbuff, size_t count, ncclDataType_t datatype,
 
 ### 6.2 Host 入队
 
-[collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:469) 中：
+[collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:469) 中：
 
 - `ncclSend` 构造 `ncclFuncSend` 的 `ncclInfo`，`root` 字段复用为 peer。
 - `ncclRecv` 构造 `ncclFuncRecv` 的 `ncclInfo`，同样复用 `root` 为 peer。
 
 ### 6.3 设备端实现
 
-设备端统一使用 [sendrecv.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/sendrecv.h:18) 的：
+设备端统一使用 [sendrecv.h](nccl/nccl-master/nccl-master/src/device/sendrecv.h:18) 的：
 
 ```c
 RunWorkBatch<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE>
@@ -501,13 +501,13 @@ RunWorkBatch<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE>
 - Gather：所有 rank 把数据汇聚到 root。
 - Scatter：root 把不同数据分发到各 rank。
 
-公开 API 见 [collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:197)、[collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:317)、[collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:431)。
+公开 API 见 [collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:197)、[collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:317)、[collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:431)。
 
 ### 7.2 实现方式：拆成 P2P
 
 这三个算子没有独立集合内核。任务分类阶段会拆成 Send/Recv：
 
-[task_classify.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:58)：
+[task_classify.cc](nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:58)：
 
 - AlltoAll：对每个 rank r，生成一个 Send 和一个 Recv。
 - Gather：每个非 root rank 发一个 Send；root 生成 n 个 Recv。
@@ -531,11 +531,11 @@ RunWorkBatch<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE>
 - `ncclSignal`：只发送信号，不传数据。
 - `ncclWaitSignal`：等待指定 peer / sigIdx / ctx 上的信号。
 
-公开 API 见 [collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:521)、[collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:554)、[collectives.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/collectives.cc:584)。
+公开 API 见 [collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:521)、[collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:554)、[collectives.cc](nccl/nccl-master/nccl-master/src/collectives.cc:584)。
 
 ### 8.2 实现方式：RMA 队列
 
-这些算子被 `ncclTaskClassification` 归入 `rmaTaskQueue`，不进入传统集合内核调度，见 [task_classify.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:130)。
+这些算子被 `ncclTaskClassification` 归入 `rmaTaskQueue`，不进入传统集合内核调度，见 [task_classify.cc](nccl/nccl-master/nccl-master/src/enqueue/task_prep/task_classify.cc:130)。
 
 ### 8.3 适用场景
 
@@ -547,7 +547,7 @@ RunWorkBatch<ncclFuncSendRecv, T, RedOp, NCCL_ALGO_RING, NCCL_PROTO_SIMPLE>
 
 AllGatherV 是 NCCL 内部使用的变长 AllGather / 批量化 Broadcast。
 
-设备端见 [all_gather_v.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/device/all_gather_v.h:16)：
+设备端见 [all_gather_v.h](nccl/nccl-master/nccl-master/src/device/all_gather_v.h:16)：
 
 - 使用 `RunWorkBatch`，一次 kernel 处理多个 work。
 - 每个 work 有 `bytes`、`bytes_done`、`chunkSize`、`ringDepth`。
@@ -559,19 +559,19 @@ AllGatherV 是 NCCL 内部使用的变长 AllGather / 批量化 Broadcast。
 
 NCCL 中除了通信算子，还有“归约操作符”这一层概念。
 
-公开归约操作符见 [nccl.h.in](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/nccl.h.in:448)：
+公开归约操作符见 [nccl.h.in](nccl/nccl-master/nccl-master/src/nccl.h.in:448)：
 
 ```c
 ncclSum, ncclProd, ncclMax, ncclMin, ncclAvg
 ```
 
-设备端归约操作符见 [device.h](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/include/device.h:60)：
+设备端归约操作符见 [device.h](nccl/nccl-master/nccl-master/src/include/device.h:60)：
 
 ```c
 ncclDevSum, ncclDevProd, ncclDevMinMax, ncclDevPreMulSum, ncclDevSumPostDiv
 ```
 
-映射关系在 [enqueue.cc](C:/Users/79811/Desktop/nccl/nccl-master/nccl-master/src/enqueue/enqueue.cc:2480)：
+映射关系在 [enqueue.cc](nccl/nccl-master/nccl-master/src/enqueue/enqueue.cc:2480)：
 
 - `ncclSum` -> `ncclDevSum`
 - `ncclProd` -> `ncclDevProd`
